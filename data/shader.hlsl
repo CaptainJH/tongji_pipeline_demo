@@ -1,6 +1,6 @@
 //-----------------------------------------------------------------------------
 cbuffer Transforms
- {
+{
 	matrix WorldViewProjMatrix;	
 	float4 Distance;
 };
@@ -29,8 +29,7 @@ VS_OUTPUT VSMain( in VS_INPUT v )
 {
 	VS_OUTPUT o = (VS_OUTPUT)0;
 
-	// Simply propogate attributes through
-	o.position = v.position;
+	o.position = mul(v.position, WorldViewProjMatrix);
 	o.color = v.color;
 
 	return o;
@@ -41,44 +40,37 @@ void GSMain( triangle GS_INPUTOUTPUT input[3], inout TriangleStream<GS_INPUTOUTP
 {
 	GS_INPUTOUTPUT output;
 
-	// Calculate the face normal
-	float3 faceEdgeA = input[1].position.xyz - input[0].position.xyz;
-	float3 faceEdgeB = input[2].position.xyz - input[0].position.xyz;
-	float3 faceNormal = normalize( cross(faceEdgeA, faceEdgeB) );
+	float2 p0 = input[0].position.xy / input[0].position.w;
+	float2 p1 = input[1].position.xy / input[1].position.w;
+	float2 p2 = input[2].position.xy / input[2].position.w;
 
+	p0 = (p0 + float2(1, 1)) * float2(400, 300);
+	p1 = (p1 + float2(1, 1)) * float2(400, 300);
+	p2 = (p2 + float2(1, 1)) * float2(400, 300);
 
+	float a = distance(p1, p2);
+	float b = distance(p0, p2);
+	float c = distance(p0, p1);
+	float alpha = acos( (b*b + c*c - a*a) / (2*b*c) );
+	float beta  = acos( (a*a + c*c - b*b) / (2*a*c) );
+
+	float ha = abs(c * sin(beta));
+	float hb = abs(c * sin(alpha));
+	float hc = abs(b * sin(alpha));
+
+	float3 d = float3(ha, hb, hc);
 
 	// Output vertices
 	for (int i = 0; i < 3; i++) {
-		// Blow up the cube
-		float4 position = input[i].position + float4(faceNormal, 0) * Distance.y;
-		
-		// Transform the new position to clipspace.
-		output.position = mul(position, WorldViewProjMatrix);
+		output.position = input[i].position;
 
-		output.color = input[i].color;
+		output.color = 0;
+		output.color[i] = d[i];
 
 		TriangleOutputStream.Append(output);
 	}
 
 	TriangleOutputStream.RestartStrip();
-
-	if(instance == 1)
-	{
-		for (int i = 0; i < 3; i++) {
-			// Blow up the cube
-			float4 position = input[i].position + float4(faceNormal, 0) * Distance.w;
-			
-			// Transform the new position to clipspace.
-			output.position = mul(position, WorldViewProjMatrix);
-
-			output.color = input[i].color;
-
-			TriangleOutputStream.Append(output);
-		}	
-
-		TriangleOutputStream.RestartStrip();	
-	}
 
 }
 
@@ -86,7 +78,12 @@ void GSMain( triangle GS_INPUTOUTPUT input[3], inout TriangleStream<GS_INPUTOUTP
 //-----------------------------------------------------------------------------
 float4 PSMain( in GS_INPUTOUTPUT input ) : SV_Target
 {
-	float4 color = input.color;
+	float threshold = 0.5f;
+	float4 color = float4(1.0f, 1.0f, 1.0f, 1.0f);
+	if(input.color.x < threshold 
+		|| input.color.y < threshold
+		|| input.color.z < threshold)
+		color = 0;
 
 	return( color );
 }

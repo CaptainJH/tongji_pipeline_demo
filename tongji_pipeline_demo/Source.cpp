@@ -25,6 +25,8 @@ public:
 	void UpdateScene(float dt);
 	void DrawScene();
 
+	virtual LRESULT MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
 private:
 	void BuildGeometryBuffers();
 	void BuildShaders();
@@ -152,6 +154,7 @@ void PipelineDemo::BuildShaders()
 	descCB.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 	descCB.Usage = D3D11_USAGE_DYNAMIC;
 	result = md3dDevice->CreateBuffer(&descCB, NULL, &mCB);
+	md3dImmediateContext->VSSetConstantBuffers(0, 1, &mCB);
 	md3dImmediateContext->GSSetConstantBuffers(0, 1, &mCB);
 
 	md3dImmediateContext->VSSetShader(mVS, NULL, 0);
@@ -213,8 +216,8 @@ bool PipelineDemo::Init()
 	BuildVertexLayout();
 
 	D3D11_RASTERIZER_DESC rs;
-	rs.FillMode = D3D11_FILL_WIREFRAME;
-	rs.CullMode = D3D11_CULL_NONE;
+	rs.FillMode = D3D11_FILL_SOLID;
+	rs.CullMode = D3D11_CULL_BACK;
 	rs.FrontCounterClockwise = false;
 	rs.DepthBias = 0;
 	rs.SlopeScaledDepthBias = 0.0f;
@@ -261,7 +264,7 @@ void PipelineDemo::DrawScene()
 	assert(md3dImmediateContext);
 	assert(mSwapChain);
 
-	md3dImmediateContext->ClearRenderTargetView(mRenderTargetView, reinterpret_cast<const float*>(&Colors::Black));
+	md3dImmediateContext->ClearRenderTargetView(mRenderTargetView, reinterpret_cast<const float*>(&Colors::Blue));
 	md3dImmediateContext->ClearDepthStencilView(mDepthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
 	md3dImmediateContext->IASetInputLayout(mInputLayout);
@@ -292,6 +295,26 @@ void PipelineDemo::DrawScene()
 	md3dImmediateContext->DrawIndexed(36, 0, 0);
 
 	HR(mSwapChain->Present(0, 0));
+}
+
+LRESULT PipelineDemo::MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+	switch (msg)
+	{
+	case WM_KEYDOWN:
+		switch (wParam)
+		{
+		case VK_SPACE:
+			mAppPaused = !mAppPaused;
+			break;
+
+		case VK_ESCAPE:
+			PostQuitMessage(0);
+			break;
+		};
+	};
+
+	return D3DApp::MsgProc(hwnd, msg, wParam, lParam);
 }
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance,
